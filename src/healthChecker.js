@@ -38,10 +38,29 @@ export async function runHealthCheck(url, modules = 'all') {
       meta: await page.evaluate(() => {
         const metaTags = {};
         document.querySelectorAll('meta').forEach(meta => {
+          // Get name or property attribute (Twitter can use either)
           const name = meta.getAttribute('name') || meta.getAttribute('property');
           const content = meta.getAttribute('content');
-          if (name && content) metaTags[name] = content;
+          
+          if (name && content) {
+            // Store the meta tag value
+            metaTags[name] = content;
+            
+            // For Twitter tags, store both with name and property format to ensure compatibility
+            if (name.startsWith('twitter:')) {
+              // If it was found with name="twitter:card", also store it as property="twitter:card"
+              // and vice versa
+              const altName = meta.hasAttribute('name') ? 'property' : 'name';
+              if (!metaTags[name]) {
+                metaTags[name] = content;
+              }
+            }
+          }
         });
+        
+        // Debug log all meta tags
+        console.log('Meta tags found:', Object.keys(metaTags));
+        
         return metaTags;
       }),
       links: await page.evaluate(() => {

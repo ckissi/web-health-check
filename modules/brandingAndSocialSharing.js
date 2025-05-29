@@ -104,26 +104,79 @@ export default async function brandingAndSocialSharingCheck(page, pageData) {
     }
   });
   
-  // Check for Twitter Card tags
-  const requiredTwitterTags = ['twitter:card', 'twitter:title', 'twitter:description'];
-  const twitterTags = {};
+  // Check for Twitter Card tags directly in the HTML
+  const twitterCardResult = await page.evaluate(() => {
+    // Required Twitter Card tags to check for
+    const requiredTags = ['twitter:card', 'twitter:title', 'twitter:description'];
+    const foundTags = {};
+    const allTwitterTags = [];
+    
+    // Get all meta tags on the page
+    const metaTags = document.querySelectorAll('meta');
+    
+    // Check each meta tag for Twitter Card properties
+    metaTags.forEach(meta => {
+      // Check both name and property attributes
+      const nameAttr = meta.getAttribute('name');
+      const propertyAttr = meta.getAttribute('property');
+      const content = meta.getAttribute('content');
+      
+      // If this is a Twitter tag, record it
+      if (nameAttr && nameAttr.includes('twitter:')) {
+        foundTags[nameAttr] = content;
+        allTwitterTags.push({ name: nameAttr, content, attribute: 'name' });
+      }
+      
+      if (propertyAttr && propertyAttr.includes('twitter:')) {
+        foundTags[propertyAttr] = content;
+        allTwitterTags.push({ name: propertyAttr, content, attribute: 'property' });
+      }
+    });
+    
+    // Check which required tags are present/missing
+    const present = [];
+    const missing = [];
+    
+    for (const tag of requiredTags) {
+      if (foundTags[tag]) {
+        present.push(tag);
+      } else {
+        // Try case-insensitive matching as a fallback
+        const matchingTag = Object.keys(foundTags).find(key => 
+          key.toLowerCase() === tag.toLowerCase());
+        
+        if (matchingTag) {
+          present.push(tag);
+          foundTags[tag] = foundTags[matchingTag]; // Map to the standard name
+        } else {
+          missing.push(tag);
+        }
+      }
+    }
+    
+    return {
+      foundTags,
+      present,
+      missing,
+      allTwitterTags
+    };
+  });
   
-  for (const tag of requiredTwitterTags) {
-    twitterTags[tag] = pageData.meta[tag] || null;
-  }
-  
-  const missingTwitterTags = requiredTwitterTags.filter(tag => !twitterTags[tag]);
-  
+  // Add Twitter Card tags test result
   results.push({
     test: 'Twitter Card Tags',
-    status: missingTwitterTags.length === 0 ? 'pass' : missingTwitterTags.length < requiredTwitterTags.length / 2 ? 'warning' : 'fail',
-    message: missingTwitterTags.length === 0 
+    status: twitterCardResult.missing.length === 0 ? 'pass' : 
+            twitterCardResult.missing.length < 2 ? 'warning' : 'fail',
+    message: twitterCardResult.missing.length === 0 
       ? 'All required Twitter Card tags are present' 
-      : `Missing ${missingTwitterTags.length} Twitter Card tags: ${missingTwitterTags.join(', ')}`,
+      : `Missing ${twitterCardResult.missing.length} Twitter Card tags: ${twitterCardResult.missing.join(', ')}`,
     details: { 
-      present: requiredTwitterTags.filter(tag => twitterTags[tag]),
-      missing: missingTwitterTags,
-      values: twitterTags
+      present: twitterCardResult.present,
+      missing: twitterCardResult.missing,
+      values: twitterCardResult.foundTags,
+      allTwitterTags: twitterCardResult.allTwitterTags,
+      rawHtml: twitterCardResult.allTwitterTags.map(tag => 
+        `<meta ${tag.attribute}="${tag.name}" content="${tag.content}">`).join('\n')
     }
   });
   
