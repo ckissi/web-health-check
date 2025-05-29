@@ -9,17 +9,63 @@
 export default async function brandingAndSocialSharingCheck(page, pageData) {
   const results = [];
   
-  // Check for favicon
-  const favicon = await page.evaluate(() => {
-    const favicon = document.querySelector('link[rel="icon"], link[rel="shortcut icon"]');
-    return favicon ? favicon.href : null;
+  // Check for favicon (multiple methods)
+  const faviconResult = await page.evaluate(() => {
+    const result = {
+      found: false,
+      url: null,
+      method: null
+    };
+    
+    // Method 1: Check for link rel="icon" or rel="shortcut icon"
+    const faviconLink = document.querySelector('link[rel="icon"], link[rel="shortcut icon"]');
+    if (faviconLink) {
+      let href = faviconLink.href || faviconLink.getAttribute('href');
+      
+      // Handle relative paths
+      if (href && href.startsWith('/') && !href.startsWith('//')) {
+        href = window.location.origin + href;
+      } else if (href && !href.startsWith('http') && !href.startsWith('/')) {
+        href = window.location.origin + '/' + href;
+      }
+      
+      result.found = true;
+      result.url = href;
+      result.method = 'link tag';
+      return result;
+    }
+    
+    // Method 2: Check for favicon.ico at root
+    const rootFaviconUrl = window.location.origin + '/favicon.ico';
+    return {
+      found: true, // We'll verify this with a fetch in the next step
+      url: rootFaviconUrl,
+      method: 'root location'
+    };
   });
+  
+  // If favicon was detected at root, verify it actually exists
+  if (faviconResult.method === 'root location') {
+    try {
+      // Try to fetch the favicon to verify it exists
+      const response = await page.goto(faviconResult.url, { timeout: 5000 }).catch(() => null);
+      // Go back to the original page
+      await page.goBack();
+      
+      // Update found status based on response
+      faviconResult.found = response && response.status() === 200;
+    } catch (error) {
+      faviconResult.found = false;
+    }
+  }
   
   results.push({
     test: 'Favicon',
-    status: favicon ? 'pass' : 'fail',
-    message: favicon ? 'Favicon found' : 'No favicon found',
-    details: favicon ? { url: favicon } : {}
+    status: faviconResult.found ? 'pass' : 'fail',
+    message: faviconResult.found 
+      ? `Favicon found (${faviconResult.method})` 
+      : 'No favicon found',
+    details: faviconResult.found ? { url: faviconResult.url, method: faviconResult.method } : {}
   });
   
   // Check for Apple Touch Icon
