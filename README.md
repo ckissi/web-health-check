@@ -38,6 +38,12 @@ This tool analyzes webpages for various health and SEO factors, including:
    - Responsive Images: Checks for mobile-friendly image techniques
    - Font Sizes: Ensures text is readable on mobile devices
 
+6. **Link Analysis**
+   - Dofollow/Nofollow Links: Counts and categorizes links by their follow status
+   - External Link Analysis: Identifies external links that should have nofollow attributes
+   - Nofollow Links List: Provides a detailed list of all nofollow links on the page
+   - Internal vs External: Analyzes the distribution of internal and external links
+
 ## Installation
 
 ```bash
