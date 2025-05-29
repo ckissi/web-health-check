@@ -45,54 +45,11 @@ export async function runHealthCheck(url, modules = 'all') {
         return metaTags;
       }),
       links: await page.evaluate(() => {
-        // Get all anchor elements
-        const anchors = Array.from(document.querySelectorAll('a'));
-        
-        return anchors.map(a => {
-          // Handle href attribute - some frameworks might not use standard href
-          let href = a.href || '';
-          
-          // If href is empty or just '#', check for other possible href locations
-          if (!href || href === '#' || href === 'javascript:void(0)') {
-            // Check for href in dataset
-            if (a.dataset && a.dataset.href) {
-              href = a.dataset.href;
-            }
-            
-            // Check for href in aria-label
-            if (!href && a.getAttribute('aria-label')) {
-              const ariaLabel = a.getAttribute('aria-label');
-              if (ariaLabel && ariaLabel.startsWith('http')) {
-                href = ariaLabel;
-              }
-            }
-            
-            // Check for nested link in attributes
-            if (!href) {
-              for (const attr of a.attributes) {
-                if (attr.value && attr.value.startsWith('http')) {
-                  href = attr.value;
-                  break;
-                }
-              }
-            }
-          }
-          
-          // Make relative URLs absolute
-          if (href && href.startsWith('/') && !href.startsWith('//')) {
-            href = window.location.origin + href;
-          }
-          
-          return {
-            href: href,
-            text: a.textContent.trim(),
-            rel: a.getAttribute('rel'),
-            outerHTML: a.outerHTML.substring(0, 500) // Store a snippet of the HTML for debugging
-          };
-        }).filter(link => link.href && link.href.trim() !== '' && 
-                          !link.href.startsWith('javascript:') && 
-                          !link.href.startsWith('mailto:') && 
-                          !link.href.startsWith('tel:'));
+        return Array.from(document.querySelectorAll('a')).map(a => ({
+          href: a.href,
+          text: a.textContent.trim(),
+          rel: a.getAttribute('rel')
+        }));
       }),
       images: await page.evaluate(() => {
         return Array.from(document.querySelectorAll('img')).map(img => ({
